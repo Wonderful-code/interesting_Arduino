@@ -43,33 +43,36 @@ from imutils.object_detection import non_max_suppression
 class Id(object):
 
 	def __init__(self,Id):
-		self.ID = Id
-		self.faceN = 0
-		self.grayfile = 'face/face_gray/'
-		self.colorfile='face/face_color/'
+		self._ID = Id
+		self._faceN = -1
+		self._grayfile = 'face/face_gray/'
+		self._colorfile='face/face_color/'
 		
 	def setId(self,Id):
-		self.ID = Id
+		self._ID = Id
 	@property
 	def id(self):
-		return self.ID
+		return self._ID
 	#当前脸图片数量
-	def faceN(self,m):
+	def faceN(self):
 		try:
 			for i in range(0,20):
-				cv2.imread(self.colorfile+str(m)+'/%s.png' % str(i),cv2.IMREAD_COLOR)
+				cv2.imread(self._colorfile+str(self._ID)+'/%s.png' % str(i),cv2.IMREAD_COLOR)
 		except:
-			return self.faceN
+			pass
 		else:
-			self.faceN = self.faceN + 1
-
+			self._faceN = self._faceN + 1
 	#保存脸部图片
 	def face(self,color,gray):
-		self.faceN(self.ID)
-		if self.faceN <=20:
-			self.faceN = self.faceN+1
-			path_gray = self.grayfile + str(self.ID) +'/'+ str(self.faceN) + '.png'
-			path_color = self.colorfile + str(self.ID) +'/'+ str(self.faceN) + '.png'
+		self.faceN()
+		if self._faceN <=20:
+			try:
+				os.mkdir(self._grayfile + str(self._ID))
+				os.mkdir(self._colorfile + str(self._ID))
+			except Exception as e:
+				pass
+			path_gray = self._grayfile + str(self._ID) +'/'+ str(self._faceN) + '.png'
+			path_color = self._colorfile + str(self._ID) +'/'+ str(self._faceN) + '.png'
 			cv2.imwrite(path_gray,gray)
 			cv2.imwrite(path_color,color)
 
@@ -94,14 +97,17 @@ class exciting(object):
 		self.model = None
 		self._frame = None
 		self._color = None
+		self._params = None
 		self._startTime = None
 		self._backgrouds = None
 		self._fpsEstimate = None
 		self._videoWriter = None
 		self._videoFilename = None
-		self._framesElapsed = None
 		self._videoEncoding = None
+		self._facearray=None
+		self._framesElapsed = 0
 		self._frames = 0 #帧计数器
+		
 		self._faceShow=[]
 		self._face_IDs=[]
 		self._data = {}
@@ -114,17 +120,21 @@ class exciting(object):
 		self.bg.setHistory(self.history)
 		
 		self.face_alt2 = cv2.CascadeClassifier('haarcascades//haarcascade_frontalface_alt2.xml')
-		self.path = ['Background','face/face_gray','face/face_color',]
+		self.path = ['Background','face','face/face_gray','face/face_color',]
 
 		self.imgflie
+		self.facesID
 		self.pd = pygameDraw(self.name,self.height,self.width)
-
+	@property
 	def facesID(self):
-		with open('face.json', 'r',encoding='UTF-8') as f:
-			self._data=json.load(f)
-			for i in range(0,len(self._data.keys())+1):
-				self._face_IDs.append(Id(i))
-
+		try:
+			with open('face.json', 'r',encoding='UTF-8') as f:
+				self._data=json.load(f)
+				for i in range(0,len(self._data.keys())+1):
+					self._face_IDs.append(Id(i))
+		except:
+			pass
+		
 	def setface(self,face):
 		with open('face.json','w', encoding='utf8') as f:
 			json.dump(self._data,f,ensure_ascii=False)
@@ -162,7 +172,7 @@ class exciting(object):
 			if os.path.exists(path):
 				print("OK")
 			else:
-				pass
+				os.mkdir(path)
 	@property
 	def isFirstFace(self):
 		return self._firstFace is not True
@@ -180,7 +190,7 @@ class exciting(object):
 		self._framesElapsed += 1
 
 	def backgrouds():
-		facearray=self.read_images_array()
+		self._facearray=self.read_images_array()
 		self._backgrouds = self.readBackgroud(random.randint(0,19))
 		if self._backgrouds != None:
 			self._frames = 20
@@ -213,16 +223,13 @@ class exciting(object):
 					continue
 			c=c+1
 		return [x,y]
-
-	def face_rec(self,array):
-		try:
-			[x,y] = array
+	@property
+	def face_rec(self):
+		if self._facearray:
+			[x,y] = self._facearray
 			y=np.asarray(y,dtype=np.int32)
 			self.model = cv2.face.createEigenFaceRecognizer()
 			self.model.train(np.asarray(x),np.asarray(y))
-		except:
-			return False
-
 	def _writeVideoFrame(self):
 		if not self.isWritingVideo:
 			return
@@ -254,7 +261,6 @@ class exciting(object):
 	#身份识别
 	def face2(self,roi):
 		try:
-			roi = cv2.resize(roi,(32,32),interpolation = cv2.INTER_LINEAR)
 			return self.model.predict(roi)
 		except:
 			return
@@ -335,7 +341,7 @@ class exciting(object):
 
 	@property
 	def start(self):
-		#self.FPS
+		self.FPS
 		(ret,cv_img)= self.camera.read()
 		self._frame = imutils.resize(cv_img,self.width,self.height)
 		self.gray = cv2.cvtColor(self._frame, cv2.COLOR_BGR2GRAY)#灰色
@@ -356,19 +362,43 @@ class exciting(object):
 			face=self.face(self.gray) #脸
 			if face != ():
 				self.pd.drawFace(face)#显示区域
+				x,y = [],[]
 				for fx,fy,fw,fh in face:
 					roi = self.gray[fy:fy+fh,fx:fx+fw]
 					roj = self._color[fy:fy+fh,fx:fx+fw]
 					roi = cv2.resize(roi,(200,200))
 					roj = cv2.resize(roj,(200,200))
-
 					self._faceShow.append(roj)
+
+
+					if self._facearray != None:
+						self.face_rec
+						self._params = self.face2(roi)
+					else:
+						x.append(np.asarray(roi,dtype=np.uint8))
+						y.append(1)
+						self._facearray = [x,y]
+						self._face_IDs.append(Id(1))
+						_color=self._frame[fy:fy+fh,fx:fx+fw]
+						_color=cv2.resize(roj,(200,200))
+						self._face_IDs[0].face(_color,roi)
+
+					
+					if self._params != None:
+						print(self._params[0],self._params[1])
+						print("0: %s, Confidence: %.2f" % (self._params[0],self._params[1]))
+						#n = self._face_IDs[self._params[0]].faceN()
+						
+						pass
+					#self._face_IDs.append(Id(len(self._face_IDs)))
+
 	def toArduino(self):
 		l = 0
 		t = 0
 		KNN=self.KNN_difference(self._frame,self.args)
 		if  KNN != []:
 			face=self.face(self.gray) #脸
+
 			try:
 				l,t,w,h = self.dlibFace(self._color)
 			except:
@@ -377,6 +407,15 @@ class exciting(object):
 				self.pd.drawFace(face)#显示区域
 			return l,t
 ''' 
+#人脸标记 #匹配值
+
+
+roi = cv2.resize(roi,(32,32),interpolation = cv2.INTER_LINEAR)
+
+
+
+					params[0],params[1]
+					self._data
 					x.append(np.asarray(roi,dtype=np.uint8))
 					y.append(faceslen)
 					et.face_rec([x,y])

@@ -97,9 +97,10 @@ class pygameDraw(object):
 			color = 4 #已识别
 		pygame.draw.rect(self._screen,self._color[color],[x+w,y+(42*j),90,40])
 	
-	def drawFaces(self,faceShow=[]):
+	def drawFaces(self,faceShow):
 
 		for i in range(0,len(faceShow)+1):
+
 			roj = np.swapaxes(faceShow[i], 0, 1)
 			roj = pygame.pixelcopy.make_surface(roj)
 			#self.show_text(self._screen,(self._width-100,10),str(f),7,30)
