@@ -5,10 +5,11 @@
 import os  
 import sys  
 import win32api  
-import win32con  
-import win32gui_struct  
-  
-import screenshot  
+import win32con
+import win32gui_struct
+import screenshot
+from interesion_model import exciting
+
   
 try:  
     import winxpgui as win32gui
@@ -223,12 +224,14 @@ if __name__ == '__main__':
       
     icons = 'screenshot_tray.ico'  
     hover_text = "Interesion"  
-    menu_options = (('监控窗口', icons, screenshot.capture_fullscreen), 
+    menu_options = (('监控窗口', icons, exciting.start),
                     ('抓取当前窗口', icons, screenshot.capture_current_windows),
                     ('抓取所选区域', icons, screenshot.capture_choose_windows)
                    )  
-    def bye(sysTrayIcon): print('退出') 
-      
+    def bye(sysTrayIcon):
+    	camera.release()
+    	exit()
+
     SysTrayIcon(icons, hover_text, menu_options, on_quit=bye) 
       
     #提供快捷键操作  

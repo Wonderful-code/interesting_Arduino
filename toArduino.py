@@ -22,13 +22,20 @@ import serial
 import pygame
 from interesing_model import exciting
 
-camera = cv2.VideoCapture(0)
+try:
+	camera = cv2.VideoCapture(0)
+except:
+	print("请连接摄像头")
+	camera.release()
+	pygame.quit()
+	exit()
+
 et=exciting(camera)
 val= 4 #初始的摄像头角度
 r = 4 #脸部丢失时的回归角度
 string='' #传递Arduino 字符串
 time = 0 #识别到脸部次数
-space = 6 #多少次脸部检查后的摄像头调整
+space = 5 #多少次脸部检查后的摄像头调整
 
 w = 200
 aw = 600
@@ -40,18 +47,7 @@ except:
 	print('没链接到Arduino')
 
 while True:
-	for event in pygame.event.get():
-		if event.type == pygame.QUIT:
-			camera.release()
-			pygame.quit()
-			exit()
-
-		elif event.type == pygame.MOUSEMOTION:
-		#return the X and Y position of the mouse cursor
-			pos = pygame.mouse.get_pos()
-			mouse_x = pos[0]
-			mouse_y = pos[1]
-		
+	time += 1
 	et.start
 	try:
 		x,y = et.toArduino()
@@ -63,7 +59,7 @@ while True:
 			val = 0
 
 		if x != 0:
-			time += 1
+			
 			if x < 280 and (time%space) == 0:
 				val += 1
 				i = str(val)

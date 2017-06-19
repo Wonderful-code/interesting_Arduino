@@ -43,11 +43,12 @@ from imutils.object_detection import non_max_suppression
 class Id(object):
 
 	def __init__(self,Id):
+		self.face=[]
 		self._ID = Id
 		self._faceN = -1
 		self._grayfile = 'face/face_gray/'
 		self._colorfile='face/face_color/'
-		
+		self.faceN()
 	def setId(self,Id):
 		self._ID = Id
 	@property
@@ -56,15 +57,14 @@ class Id(object):
 	#当前脸图片数量
 	def faceN(self):
 		try:
-			for i in range(0,20):
-				cv2.imread(self._colorfile+str(self._ID)+'/%s.png' % str(i),cv2.IMREAD_COLOR)
+			for i in range(0,22):
+				self.face.append(cv2.imread(self._colorfile+str(self._ID)+'/%s.png' % str(i),cv2.IMREAD_COLOR))
+				self._faceN = i
 		except:
 			pass
-		else:
-			self._faceN = self._faceN + 1
 	#保存脸部图片
 	def face(self,color,gray):
-		self.faceN()
+		
 		if self._faceN <=20:
 			try:
 				os.mkdir(self._grayfile + str(self._ID))
@@ -105,9 +105,11 @@ class exciting(object):
 		self._videoFilename = None
 		self._videoEncoding = None
 		self._facearray=None
-		self._framesElapsed = 0
-		self._frames = 0 #帧计数器
 		
+		self._frames = 0 #帧计数器
+		self._firstFace = 0
+		self._framesElapsed = 0
+
 		self._faceShow=[]
 		self._face_IDs=[]
 		self._data = {}
@@ -120,7 +122,7 @@ class exciting(object):
 		self.bg.setHistory(self.history)
 		
 		self.face_alt2 = cv2.CascadeClassifier('haarcascades//haarcascade_frontalface_alt2.xml')
-		self.path = ['Background','face','face/face_gray','face/face_color',]
+		self.path = ['Background','face','face/face_gray','face/face_color']
 
 		self.imgflie
 		self.facesID
@@ -173,9 +175,6 @@ class exciting(object):
 				print("OK")
 			else:
 				os.mkdir(path)
-	@property
-	def isFirstFace(self):
-		return self._firstFace is not True
 	@property #在写视频吗？
 	def isWritingVideo(self):
 		return self._videoFilename is not None
@@ -188,9 +187,8 @@ class exciting(object):
 			timeElapsed = time.time() - self._startTime
 			self._fpsEstimate = self._framesElapsed/timeElapsed
 		self._framesElapsed += 1
-
+	@property
 	def backgrouds():
-		self._facearray=self.read_images_array()
 		self._backgrouds = self.readBackgroud(random.randint(0,19))
 		if self._backgrouds != None:
 			self._frames = 20
@@ -222,7 +220,7 @@ class exciting(object):
 				except:
 					continue
 			c=c+1
-		return [x,y]
+		self._facearray = [x,y]
 	@property
 	def face_rec(self):
 		if self._facearray:
@@ -341,16 +339,20 @@ class exciting(object):
 
 	@property
 	def start(self):
+		self.pd.quit(self.camera)
 		self.FPS
 		(ret,cv_img)= self.camera.read()
 		self._frame = imutils.resize(cv_img,self.width,self.height)
 		self.gray = cv2.cvtColor(self._frame, cv2.COLOR_BGR2GRAY)#灰色
 		self._color = cv2.cvtColor(self._frame, cv2.COLOR_RGB2BGR)#opencv的色彩空间是BGR，pygame的色彩空间是RGB
-		self.pd.show_text((10,self._frame.shape[0]-40),datetime.datetime.now().strftime(u"%Y-%d %I:%M:%S"),15,True,30)
-		pygame.display.update()
-		pixl_arr = np.swapaxes(self._color, 0, 1)
-		new_surf = pygame.pixelcopy.make_surface(pixl_arr)
-		self.pd._screen.blit(new_surf, (0, 0))#设置窗口背景
+		try:
+			self.pd.show_text((10,self._frame.shape[0]-40),datetime.datetime.now().strftime(u"%Y-%d %I:%M:%S"),15,True,30)
+			pygame.display.update()
+			pixl_arr = np.swapaxes(self._color, 0, 1)
+			new_surf = pygame.pixelcopy.make_surface(pixl_arr)
+			self.pd._screen.blit(new_surf, (0, 0))
+		except:
+			pass
 		self.discern()
 		if self._faceShow != []:
 			self.pd.drawFaces(self._faceShow)
@@ -361,7 +363,10 @@ class exciting(object):
 		if  KNN != []:
 			face=self.face(self.gray) #脸
 			if face != ():
-				self.pd.drawFace(face)#显示区域
+				try:
+					self.pd.drawFace(face)#显示区域
+				except:
+					pass
 				x,y = [],[]
 				for fx,fy,fw,fh in face:
 					roi = self.gray[fy:fy+fh,fx:fx+fw]
@@ -370,26 +375,15 @@ class exciting(object):
 					roj = cv2.resize(roj,(200,200))
 					self._faceShow.append(roj)
 
-
 					if self._facearray != None:
 						self.face_rec
 						self._params = self.face2(roi)
-					else:
-						x.append(np.asarray(roi,dtype=np.uint8))
-						y.append(1)
-						self._facearray = [x,y]
-						self._face_IDs.append(Id(1))
-						_color=self._frame[fy:fy+fh,fx:fx+fw]
-						_color=cv2.resize(roj,(200,200))
-						self._face_IDs[0].face(_color,roi)
 
-					
-					if self._params != None:
-						print(self._params[0],self._params[1])
-						print("0: %s, Confidence: %.2f" % (self._params[0],self._params[1]))
-						#n = self._face_IDs[self._params[0]].faceN()
-						
-						pass
+				if self._params != None:
+					self.pd.drawFace(face,True)
+					print(self._params[0],self._params[1])
+					print("0: %s, Confidence: %.2f" % (self._params[0],self._params[1]))
+					#n = self._face_IDs[self._params[0]].faceN()
 					#self._face_IDs.append(Id(len(self._face_IDs)))
 
 	def toArduino(self):
@@ -408,12 +402,9 @@ class exciting(object):
 			return l,t
 ''' 
 #人脸标记 #匹配值
-
+self._facearray=self.read_images_array()
 
 roi = cv2.resize(roi,(32,32),interpolation = cv2.INTER_LINEAR)
-
-
-
 					params[0],params[1]
 					self._data
 					x.append(np.asarray(roi,dtype=np.uint8))
